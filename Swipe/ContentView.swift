@@ -4,52 +4,83 @@ import UIKit
 #endif
 
 struct ContentView: View {
-    @State private var urlString: String = ""
-    @State private var statusMessage: String = "Ready to send"
+    @State private var statusMessage: String = "Waiting for URL in clipboard"
     @State private var isPointingAtMac: Bool = false
+    @State private var clipboardURL: String? = nil
     
     var body: some View {
         #if os(iOS)
-        VStack(spacing: 30) {
-            Image(systemName: "arrow.up.and.person.rectangle.portrait")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 80, height: 80)
-                .foregroundColor(.blue)
+        ZStack {
+            // Background
+            Color.black.edgesIgnoringSafeArea(.all)
             
-            Text("Spatial Continuity")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-            
-            Text("Paste a URL and point your phone at the Mac. Then swipe up with 3 fingers.")
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-            
-            TextField("URL to send", text: $urlString)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding(.horizontal)
-            
-            HStack {
-                Circle()
-                    .fill(isPointingAtMac ? Color.green : Color.red)
-                    .frame(width: 15, height: 15)
+            VStack(spacing: 30) {
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        SpatialTracker.shared.calibrateMacLocation()
+                        let generator = UIImpactFeedbackGenerator(style: .medium)
+                        generator.impactOccurred()
+                    }) {
+                        Image(systemName: "location.north.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding()
+                }
                 
-                Text(isPointingAtMac ? "Pointing at Mac" : "Not pointing at Mac")
-                    .foregroundColor(isPointingAtMac ? .green : .red)
+                Spacer()
+                
+                Image(systemName: "macbook.and.iphone")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 100, height: 100)
+                    .foregroundColor(.white.opacity(0.9))
+                
+                Text("Spatial Continuity")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                if clipboardURL != nil {
+                    Text("URL Ready in Clipboard")
+                        .font(.headline)
+                        .foregroundColor(.green)
+                    Text("Place 3 fingers anywhere and swipe up")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                } else {
+                    Text("Copy a link in Safari first")
+                        .font(.headline)
+                        .foregroundColor(.red)
+                }
+                
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(isPointingAtMac ? Color.green : Color.red)
+                        .frame(width: 12, height: 12)
+                    
+                    Text(isPointingAtMac ? "Pointing at Mac" : "Not pointing at Mac")
+                        .font(.caption)
+                        .foregroundColor(isPointingAtMac ? .green : .red)
+                }
+                
+                Text(statusMessage)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.5))
+                    .padding(.top, 20)
+                
+                Spacer()
+                Spacer()
             }
-            
-            Text(statusMessage)
-                .font(.caption)
-                .foregroundColor(.gray)
-            
-            Spacer()
+            .padding()
         }
-        .padding()
         .onAppear {
             checkClipboard()
-            // Poll for direction
+            // Poll for direction and clipboard changes
             Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
                 self.isPointingAtMac = SpatialTracker.shared.isPointingAtMac()
+                self.checkClipboard()
             }
         }
         .onThreeFingerSwipeUp {
@@ -64,23 +95,20 @@ struct ContentView: View {
     #if os(iOS)
     private func checkClipboard() {
         if let string = UIPasteboard.general.string, let _ = URL(string: string) {
-            urlString = string
-            statusMessage = "Found URL in clipboard!"
+            if clipboardURL != string {
+                clipboardURL = string
+                statusMessage = "Ready to send"
+            }
+        } else {
+            clipboardURL = nil
+            statusMessage = "Waiting for URL in clipboard"
         }
     }
     
     private func sendURL() {
-        guard let url = URL(string: urlString) else {
-            statusMessage = "Invalid URL"
+        guard let urlString = clipboardURL, let url = URL(string: urlString) else {
+            statusMessage = "No URL to send"
             return
-        }
-        
-        if !isPointingAtMac {
-            // Optional: enforce pointing, but for ease of use we can just send it anyway or show a warning.
-            // Let's enforce it.
-            statusMessage = "Please point directly at your Mac!"
-            // To make it easy and basic as the user requested, maybe we allow it to pass if they don't want strict compass.
-            // We will send it anyway, but notify.
         }
         
         MultipeerManager.shared.send(url: url)

@@ -22,11 +22,17 @@ class SpatialTracker: NSObject, ObservableObject, CLLocationManagerDelegate {
         locationManager.requestWhenInUseAuthorization()
         
         if CLLocationManager.headingAvailable() {
+            locationManager.headingOrientation = .portrait
             locationManager.startUpdatingHeading()
             logger.info("Started updating heading")
         } else {
             logger.warning("Heading is not available on this device.")
         }
+    }
+    
+    func calibrateMacLocation() {
+        targetMacHeading = currentHeading
+        logger.info("Calibrated Mac location to \(self.targetMacHeading)")
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
