@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var statusMessage: String = "Waiting for URL in clipboard"
     @State private var isPointingAtMac: Bool = false
     @State private var clipboardURL: String? = nil
+    @ObservedObject private var multipeer = MultipeerManager.shared
     
     var body: some View {
         #if os(iOS)
@@ -57,12 +58,12 @@ struct ContentView: View {
                 
                 HStack(spacing: 8) {
                     Circle()
-                        .fill(isPointingAtMac ? Color.green : Color.red)
+                        .fill(multipeer.connectedPeers.isEmpty ? Color.orange : Color.green)
                         .frame(width: 12, height: 12)
                     
-                    Text(isPointingAtMac ? "Pointing at Mac" : "Not pointing at Mac")
+                    Text(multipeer.connectedPeers.isEmpty ? "Connecting to Mac..." : "Connected to \(multipeer.connectedPeers.count) Mac(s)")
                         .font(.caption)
-                        .foregroundColor(isPointingAtMac ? .green : .red)
+                        .foregroundColor(multipeer.connectedPeers.isEmpty ? .orange : .green)
                 }
                 
                 Text(statusMessage)
